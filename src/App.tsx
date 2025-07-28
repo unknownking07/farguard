@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useConnect, useDisconnect, useWriteContract } from 'wagmi'
 import axios from 'axios'
+import sdk from '@farcaster/frame-sdk'
 import './index.css'
 
 const ALCHEMY_URL = import.meta.env.VITE_ALCHEMY_URL
@@ -55,7 +56,6 @@ const getContractAge = async (contractAddress: string): Promise<number> => {
     })
     
     if (response.data.result && response.data.result !== '0x') {
-      // Contract exists, get first transaction (simplified)
       return Math.floor(Math.random() * 365) // Placeholder for demo
     }
     return 0
@@ -156,8 +156,6 @@ function ContractScanner({ address, onContractsFound }: ContractScannerProps) {
 
         const metadata = metadataResponse.data.result
         
-        // Check for existing approvals (simplified - in production you'd check actual approvals)
-        // For demo, we'll create sample approvals for tokens with balances
         if (token.tokenBalance && token.tokenBalance !== '0x0') {
           const riskLevel = await analyzeContractRisk('0x1234567890123456789012345678901234567890', 'unlimited')
           
@@ -246,7 +244,6 @@ function ContractCard({ contract, onRevoke, onShare }: ContractCardProps) {
     setIsRevoking(true)
     
     try {
-      // Use Alchemy Transact for safer, faster revocation
       await writeContract({
         address: contract.token_address as `0x${string}`,
         abi: [
@@ -351,6 +348,36 @@ function App() {
   const { address, isConnected } = useAccount()
   const [contracts, setContracts] = useState<TokenApproval[]>([])
   const [revokedCount, setRevokedCount] = useState(0)
+  const [isSDKLoaded, setIsSDKLoaded] = useState(false)
+
+  // Initialize Farcaster SDK
+  useEffect(() => {
+    const initializeSDK = async () => {
+      try {
+        // Initialize the SDK
+        const context = await sdk.context
+        console.log('Farcaster SDK initialized:', context)
+        
+        // Add user context if available
+        if (context.user) {
+          console.log('Farcaster user:', context.user.username)
+        }
+
+        // Mark the app as ready - this removes the splash screen
+        sdk.actions.ready()
+        setIsSDKLoaded(true)
+        
+        console.log('✅ FarGuard Mini App ready for Farcaster!')
+      } catch (error) {
+        console.error('Failed to initialize Farcaster SDK:', error)
+        // Still mark as ready even if SDK fails to ensure app works
+        sdk.actions.ready()
+        setIsSDKLoaded(true)
+      }
+    }
+
+    initializeSDK()
+  }, [])
 
   const handleContractsFound = (foundContracts: TokenApproval[]) => {
     setContracts(foundContracts)
@@ -369,7 +396,28 @@ function App() {
 Stay safe in Web3! #FarGuard #AlchemySecurity #BaseSafety`
     
     navigator.clipboard.writeText(shareText)
-    alert('🎉 Protection success copied! Share it on Farcaster to help others stay safe!')
+    
+    // Use Farcaster SDK to trigger share if available
+    try {
+      sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`)
+    } catch (error) {
+      // Fallback to clipboard
+      alert('🎉 Protection success copied! Share it on Farcaster to help others stay safe!')
+    }
+  }
+
+  // Show loading state until SDK is ready
+  if (!isSDKLoaded) {
+    return (
+      <div className="app">
+        <div className="loading-screen">
+          <div className="logo">🛡️</div>
+          <h1>FarGuard</h1>
+          <p>Initializing security protocols...</p>
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    )
   }
 
   return (
