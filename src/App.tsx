@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount, useConnect, useDisconnect, useWriteContract } from 'wagmi'
 import axios from 'axios'
 import './index.css'
 
 const ALCHEMY_URL = import.meta.env.VITE_ALCHEMY_URL
-const BASE_CHAIN_ID = 8453
 
 interface TokenApproval {
   token_address: string
@@ -113,7 +112,12 @@ function WalletConnection() {
   )
 }
 
-function ContractScanner({ address, onContractsFound }) {
+interface ContractScannerProps {
+  address: string | undefined
+  onContractsFound: (contracts: TokenApproval[]) => void
+}
+
+function ContractScanner({ address, onContractsFound }: ContractScannerProps) {
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState(0)
 
@@ -137,7 +141,7 @@ function ContractScanner({ address, onContractsFound }) {
       const tokens = tokenResponse.data.result?.tokenBalances || []
       
       // For each token, check for approvals
-      const approvals = []
+      const approvals: TokenApproval[] = []
       for (let i = 0; i < tokens.length; i++) {
         const token = tokens[i]
         setScanProgress(30 + (40 * i / tokens.length))
@@ -227,7 +231,13 @@ function ContractScanner({ address, onContractsFound }) {
   )
 }
 
-function ContractCard({ contract, onRevoke, onShare }) {
+interface ContractCardProps {
+  contract: TokenApproval
+  onRevoke: (contract: TokenApproval) => void
+  onShare: (contract: TokenApproval) => void
+}
+
+function ContractCard({ contract, onRevoke, onShare }: ContractCardProps) {
   const [isRevoking, setIsRevoking] = useState(false)
   const [isRevoked, setIsRevoked] = useState(false)
   const { writeContract } = useWriteContract()
@@ -266,7 +276,7 @@ function ContractCard({ contract, onRevoke, onShare }) {
     }
   }
 
-  const getRiskColor = (level) => {
+  const getRiskColor = (level: string) => {
     switch(level) {
       case 'high': return '#ff4757'
       case 'medium': return '#ffa502'  
@@ -339,18 +349,18 @@ function ContractCard({ contract, onRevoke, onShare }) {
 
 function App() {
   const { address, isConnected } = useAccount()
-  const [contracts, setContracts] = useState([])
+  const [contracts, setContracts] = useState<TokenApproval[]>([])
   const [revokedCount, setRevokedCount] = useState(0)
 
-  const handleContractsFound = (foundContracts) => {
+  const handleContractsFound = (foundContracts: TokenApproval[]) => {
     setContracts(foundContracts)
   }
 
-  const handleRevoke = (contract) => {
+  const handleRevoke = (_contract: TokenApproval) => {
     setRevokedCount(prev => prev + 1)
   }
 
-  const handleShare = (contract) => {
+  const handleShare = (contract: TokenApproval) => {
     const shareText = `🛡️ Just used FarGuard to revoke "${contract.spender_name}" access to my ${contract.token_name} on Base! 
 
 ✅ Protected with Alchemy's enterprise-grade security
